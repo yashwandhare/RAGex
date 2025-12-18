@@ -1,40 +1,42 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import List
 
 class Settings(BaseSettings):
-    """
-    Centralized configuration for the RAG Backend.
-    """
+    """Centralized configuration with validation"""
     
-    # ==================== API Keys ====================
-    GOOGLE_API_KEY: str
+    # API Keys
+    GROQ_API_KEY: str = "gsk_..."
     
-    # ==================== Model Config ====================
-    LLM_MODEL: str = "gemini-2.5-flash"
+    # Model Configuration
+    # Model can be changed via environment: LLM_MODEL
+    LLM_MODEL: str = Field(default="llama-3.1-8b-instant", env="LLM_MODEL")
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
     
-    # ==================== RAG Parameters ====================
-    # Increased chunk size to capture full definitions (e.g., "Founder Mode")
+    # RAG Parameters
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
+    DISTANCE_THRESHOLD: float = 0.75
+    TOP_K_RESULTS: int = 10
     
-    # Retrieval Thresholds
-    # Relaxed to 0.82 to allow broader matching for short queries like "Who is the writer?"
-    DISTANCE_THRESHOLD: float = 0.82
-    TOP_K_RESULTS: int = 15  # Retrieve more context to find deep answers
+    # Crawler Settings
+    MAX_CRAWL_DEPTH: int = 3  # Increased to go deeper
+    REQUEST_TIMEOUT: int = 30 
+    USER_AGENT: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     
-    # ==================== Crawler Settings ====================
-    MAX_CRAWL_DEPTH: int = 3
-    REQUEST_TIMEOUT: int = 15
-    USER_AGENT: str = "Mozilla/5.0 (RAG-Bot/2.0)"
+    # Performance
     MAX_WORKERS: int = 5
     MAX_PAGES_PER_INDEX: int = 50
     
-    # ==================== Application ====================
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000", "http://localhost:8080"]
-    LOG_LEVEL: str = "INFO"
-    ENVIRONMENT: str = "development"
+    # Security & CORS
+    CORS_ORIGINS: List[str] = ["*"]  
+    
+    # Database
     CHROMA_PERSIST_DIR: str = "./data/chroma_db"
+    
+    # Logging
+    LOG_LEVEL: str = "INFO"
+    ENVIRONMENT: str = "production"
     
     class Config:
         env_file = ".env"
