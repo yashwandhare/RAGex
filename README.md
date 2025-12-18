@@ -1,4 +1,4 @@
-# RAG Backend
+# RAG
 
 A Retrieval-Augmented Generation (RAG) system built with FastAPI that enables intelligent question-answering over web content.
 
