@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG // TERMINAL_V2</title>
+    <style>
+        :root { --bg: #0a0a0a; --green: #00ff41; --panel: #111; --text: #e0e0e0; }
+        body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        header { border-bottom: 1px solid var(--green); padding: 1rem; background: #000; display: flex; justify-content: space-between; }
+        main { display: flex; flex: 1; overflow: hidden; }
+        .sidebar { width: 300px; border-right: 1px solid #333; padding: 1rem; background: var(--panel); display: flex; flex-direction: column; gap: 1rem; }
+        .chat-area { flex: 1; padding: 1rem; display: flex; flex-direction: column; }
+        #history { flex: 1; overflow-y: auto; margin-bottom: 1rem; padding-right: 0.5rem; }
+        input, button { background: #000; border: 1px solid #333; color: var(--green); padding: 0.5rem; font-family: inherit; }
+        button:hover { background: var(--green); color: #000; cursor: pointer; }
+        .msg { padding: 0.8rem; border-left: 3px solid; margin-bottom: 1rem; max-width: 85%; }
+        .user { border-color: #00bcd4; align-self: flex-end; margin-left: auto; background: #001f24; }
+        .bot { border-color: var(--green); background: #001a05; }
+        .refusal { border-color: #ff4444; color: #ffaaaa; }
+        .meta { font-size: 0.7rem; color: #666; margin-top: 5px; border-top: 1px dashed #333; padding-top: 5px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div>RAG // SYSTEM_V2</div>
+        <div id="status" style="color:var(--green)">SYSTEM READY</div>
+    </header>
+    <main>
+        <div class="sidebar">
+            <label>TARGET URL</label>
+            <input type="text" id="url" value="https://paulgraham.com/foundermode.html">
+            <button onclick="idx()">INIT_INDEX_SEQUENCE</button>
+            <div id="log" style="font-size:0.7rem; color:#666; flex:1; overflow:auto; border:1px dashed #333; padding:5px;"></div>
+        </div>
+        <div class="chat-area">
+            <div id="history"></div>
+            <div style="display:flex; gap:0.5rem;">
+                <input type="text" id="q" placeholder="Enter query..." style="flex:1" onkeypress="if(event.key==='Enter') ask()">
+                <button onclick="ask()">SEND</button>
+            </div>
+        </div>
+    </main>
+    <script>
+        const API = "http://127.0.0.1:8000/api/v1";
+        let hist = [];
+        const log = m => document.getElementById('log').innerHTML += `> ${m}<br>`;
+        
+        async function idx() {
+            const btn = document.querySelector('button'); btn.disabled=true;
+            log('Starting crawl...');
+            await fetch(`${API}/index`, {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({url: document.getElementById('url').value})
+            });
+            log('Index task accepted.');
+            setTimeout(() => { btn.disabled=false; log('Ready.'); }, 2000);
+        }
+
+        async function ask() {
+            const q = document.getElementById('q'); const val = q.value.trim();
+            if(!val) return;
+            addMsg(val, 'user'); q.value='';
+            
+            try {
+                const res = await fetch(`${API}/query`, {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({question: val, history: hist})
+                });
+                const data = await res.json();
+                addMsg(data.answer, 'bot', data);
+                hist.push({role:'user', content:val}, {role:'assistant', content:data.answer});
+            } catch(e) { addMsg('Error: '+e, 'bot'); }
+        }
+
+        function addMsg(txt, role, meta) {
+            const div = document.createElement('div');
+            div.className = `msg ${role} ${meta?.refusal ? 'refusal':''}`;
+            let h = `<div>${txt.replace(/\n/g,'<br>')}</div>`;
+            if(meta && meta.sources) {
+               // Use 'confidence' OR 'confidence_score' to be safe
+                    h += `<div class="meta">CONF: ${Math.round((meta.confidence || meta.confidence_score || 0)*100)}% | SRC: ${meta.sources.join(', ')}</div>`;
+            }
+            div.innerHTML = h;
+            document.getElementById('history').appendChild(div);
+            document.getElementById('history').scrollTop = 10000;
+        }
+    </script>
+</body>
+</html>
