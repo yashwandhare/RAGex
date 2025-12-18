@@ -1,19 +1,27 @@
-# RAG Web
+# RAGex
 
-A production-ready Retrieval-Augmented Generation (RAG) system with a FastAPI backend and web frontend for intelligent question-answering over web content.
+RAGex is a Retrieval-Augmented Generation (RAG) system with a FastAPI backend and a modern glassmorphic web UI. It crawls pages, builds a local vector index, and answers questions or summaries against that context using Groq-hosted Llama 3.1.
 
 ## Features
 
-- 🕷️ Web content crawling and indexing
-- 🔍 Vector-based semantic search using ChromaDB
-- 🤖 LLM-powered response generation (Google Gemini)
-- 🚀 RESTful API architecture
-- 💻 Terminal-style web interface
+- 🕷️ Web crawling and indexing (HTML-first; no JS execution)
+- 🔍 Vector semantic search with ChromaDB
+- 🤖 Groq Llama 3.1 (default: llama-3.1-8b-instant) for answers
+- 📄 One-click page summarization
+- 🎯 Adaptive retrieval with confidence scoring
+- 💬 Follow-up question suggestions
+- 💻 Glassmorphic, smooth-scrolling web interface
+- ⚙️ Environment-based configuration (LLM model, API keys)
+
+## Current limitations
+
+- Images/OCR, PDF/DOCX/PPTX, and YouTube transcripts are not yet implemented.
+- No JavaScript rendering: SPA-heavy or auth-gated pages may index partially. Use fully rendered/static pages for best results.
 
 ## Project Structure
 
 ```
-RAG-web/
+RAGex/
 ├── backend/              # FastAPI backend service
 │   ├── app/
 │   │   ├── api/         # API endpoints
@@ -34,13 +42,17 @@ RAG-web/
 
 **Backend:**
 - FastAPI - Modern Python web framework
-- ChromaDB - Vector database for embeddings
-- Google Gemini - Large language model
-- BeautifulSoup4 - Web scraping
-- Sentence Transformers - Text embeddings
+- ChromaDB - Local vector database
+- Groq API - Fast LLM inference (llama-3.1-8b-instant by default)
+- aiohttp + BeautifulSoup4 - HTML crawling and parsing
+- Sentence Transformers - Text embeddings (all-MiniLM-L6-v2)
+- Pydantic Settings - Environment configuration
 
 **Frontend:**
-- Vanilla HTML/CSS/JS - No dependencies, lightweight
+- Vanilla HTML/CSS/JS - No framework
+- Glassmorphic design with backdrop filters
+- FontAwesome icons
+- Smooth scroll animations
 
 ## Quick Start
 
@@ -59,7 +71,12 @@ pip install -r requirements.txt
 3. Configure environment:
 ```bash
 cp .env.example .env
-# Add your GOOGLE_API_KEY to .env
+# Required
+GROQ_API_KEY=your_key
+
+# Optional
+LLM_MODEL=llama-3.1-8b-instant
+LOG_LEVEL=INFO
 ```
 
 4. Start the API server:
@@ -88,7 +105,30 @@ Frontend runs at: `http://localhost:8080`
 
 - `GET /` - Health check
 - `POST /api/v1/index` - Index a URL for RAG
+  - Request: `{"url": "https://example.com"}`
+  - Returns indexed content with metadata
 - `POST /api/v1/query` - Query indexed content
+  - Request: `{"question": "Your question here"}`
+  - Returns answer with sources, confidence score, and follow-up questions
+  - "summarize this page" triggers summary mode
+
+## Usage
+
+1) Index a page
+- Provide a URL in the UI and click Connect. The backend fetches HTML, chunks it, embeds, and stores in ChromaDB.
+
+2) Ask questions or summaries
+- Ask specific questions for targeted retrieval, or type "summarize this page" for broader coverage.
+
+3) Review answers
+- Responses include cited sources, a confidence score, and suggested follow-ups.
+
+## Roadmap
+
+- JS rendering for SPA-heavy pages (Playwright)
+- PDF/DOCX/PPTX ingestion
+- Image/OCR support
+- YouTube transcript ingestion
 
 ## Development
 
