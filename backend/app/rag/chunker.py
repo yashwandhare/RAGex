@@ -59,6 +59,7 @@ def chunk_pages_smart(pages: List[Dict]) -> List[Dict]:
             # ==================== EXTRACT PAGE DATA ====================
             text = page.get("text", "")
             url = page.get("url", "unknown")
+            depth = page.get("depth", 0)
             
             # Skip empty pages
             if not text:
@@ -109,7 +110,8 @@ def chunk_pages_smart(pages: List[Dict]) -> List[Dict]:
                         chunks.append({
                             "id": f"{url}::chunk_{chunk_id}",
                             "text": chunk_text,
-                            "source": url
+                            "source": url,
+                            "depth": depth,
                         })
                         chunk_id += 1
                         page_chunk_count += 1
@@ -144,7 +146,8 @@ def chunk_pages_smart(pages: List[Dict]) -> List[Dict]:
                     chunks.append({
                         "id": f"{url}::chunk_{chunk_id}",
                         "text": chunk_text,
-                        "source": url
+                        "source": url,
+                        "depth": depth,
                     })
                     page_chunk_count += 1
             

@@ -9,3 +9,4 @@ chromadb
 sentence-transformers
 google-genai
 python-multipart
+openai

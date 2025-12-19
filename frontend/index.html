@@ -557,7 +557,7 @@
                 const res = await fetch(`${API_BASE}/query`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question: q, history: session.history })
+                    body: JSON.stringify({ question: q, history: session.history, url: session.url })
                 });
                 
                 const data = await res.json();

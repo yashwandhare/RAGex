@@ -43,6 +43,49 @@ const DOM = {
     sendBtn: null
 };
 
+/**
+ * Convert summaries into bullet points for clearer scanning.
+ * If a list already exists, return the original text.
+ */
+function formatSummaryAsBullets(text) {
+    if (!text) return '';
+    if (text.includes('<ul') || text.includes('<li')) return text;
+    const cleaned = text.replace(/<<<FOLLOWUP>>>/g, '').replace(/\r?\n/g, ' ');
+    const parts = cleaned
+        .split(/[.!?]/)
+        .map(p => p.trim())
+        .filter(p => p.length > 0);
+    if (parts.length === 0) return cleaned;
+    const items = parts
+        .map(p => `<li>${p.charAt(0).toUpperCase()}${p.slice(1)}</li>`)
+        .join('');
+    return `<ul style="padding-left:18px; margin: 0; line-height:1.5;">${items}</ul>`;
+}
+
+/**
+ * Poll the backend until analysis for the given URL is ready.
+ * Ensures we don't show "analysis complete" while indexing is still running.
+ */
+async function waitForAnalysisReady(url, maxWaitMs = 30000, intervalMs = 2000) {
+    const start = Date.now();
+
+    // Keep trying until backend reports non-empty analysis or we time out
+    while (Date.now() - start < maxWaitMs) {
+        const result = await apiRequest('/analyze', {
+            body: JSON.stringify({ url })
+        });
+
+        if (result.success && result.data && result.data.type !== 'Empty') {
+            return result.data;
+        }
+
+        // Still indexing / no content yet – wait a bit then retry
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+
+    throw new Error('Indexing is taking longer than expected. Please try again in a moment.');
+}
+
 // ==================== Initialization ====================
 /**
  * Initialize the extension when side panel loads
@@ -345,30 +388,11 @@ async function handleScanClick() {
         
         console.log('[RAGex] Indexing request accepted');
         
-        // STEP 2: Wait for indexing to complete
+        // STEP 2: Poll backend until indexing for this URL is actually ready
+        console.log('[RAGex] Step 2: Waiting for backend to finish indexing');
         setOverlay(true, 'Processing...', 'Building knowledge graph');
-        await new Promise(resolve => setTimeout(resolve, 2500));
-        
-        // STEP 3: Generate smart analysis
-        console.log('[RAGex] Step 2: Generating analysis');
-        setOverlay(true, 'Analyzing Content...', 'Extracting insights');
-        
-        const analysisPrompt = `Analyze the indexed content. Return a valid JSON object (no markdown) with:
-Output ONLY the JSON, no other text.`;
-        
-        const queryResult = await apiRequest('/query', {
-            body: JSON.stringify({
-                question: analysisPrompt,
-                history: []
-            })
-        });
-        
-        if (!queryResult.success) {
-            throw new Error(queryResult.error || 'Analysis failed');
-        }
-        
-        // STEP 4: Parse and render analysis
-        const analysis = parseAnalysisResponse(queryResult.data.answer);
+
+        const analysis = await waitForAnalysisReady(STATE.currentUrl);
         
         // Graceful fade out
         setOverlay(true, 'Complete!', 'Ready to chat');
@@ -458,11 +482,12 @@ async function handleSendClick() {
     try {
         const startTime = Date.now();
         
-        // Make API request
+        // Make API request, including the current URL so summaries stay page-specific
         const result = await apiRequest('/query', {
             body: JSON.stringify({
                 question: question,
-                history: STATE.sessionHistory
+                history: STATE.sessionHistory,
+                url: STATE.currentUrl
             })
         });
         
@@ -489,7 +514,8 @@ async function handleSendClick() {
                 sources: data.sources,
                 confidence: data.confidence || data.confidence_score,
                 latency: latency,
-                refusal: data.refusal
+                refusal: data.refusal,
+                isSummary: /summary|summarize/i.test(question)
             }
         );
         
@@ -589,7 +615,7 @@ function parseAnalysisResponse(response) {
  */
 function renderAnalysisCard(analysis) {
     DOM.acType.textContent = analysis.type;
-    DOM.acSummary.textContent = analysis.summary;
+    DOM.acSummary.innerHTML = formatSummaryAsBullets(analysis.summary);
     
     // Clear and populate tags
     DOM.acTags.innerHTML = '';
@@ -635,6 +661,9 @@ function addMessage(text, role, meta = null) {
     } else {
         // BOT: Typing Effect with Marked.js
         let formattedText = text;
+        if (meta?.isSummary) {
+            formattedText = formatSummaryAsBullets(formattedText);
+        }
         
         // Only use marked for non-HTML content
         try {

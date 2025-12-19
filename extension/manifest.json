@@ -16,10 +16,7 @@
     "https://*/*"
   ],
   "content_security_policy": {
-    "script-src": [
-      "'self'",
-      "https://cdn.jsdelivr.net"
-    ]
+    "extension_pages": "script-src 'self'; object-src 'self'"
   },
   "action": {
     "default_title": "RAGex Companion"

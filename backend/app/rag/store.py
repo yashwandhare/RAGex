@@ -33,7 +33,11 @@ class VectorStore:
             self.collection.add(
                 ids=[c["id"] for c in batch],
                 documents=[c["text"] for c in batch],
-                metadatas=[{"source": c["source"]} for c in batch]
+                # Preserve existing behaviour but also allow optional extra metadata
+                metadatas=[
+                    {**{k: v for k, v in c.items() if k not in ("id", "text")}}
+                    for c in batch
+                ],
             )
 
     def query(self, text: str, n_results: int = 5):

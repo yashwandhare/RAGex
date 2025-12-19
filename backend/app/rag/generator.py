@@ -1,7 +1,10 @@
-from openai import OpenAI
-import re
+from __future__ import annotations
+
 import json
-from typing import List, Dict
+from typing import Dict, List, Optional
+
+from openai import OpenAI
+
 from app.core.config import settings
 from app.core.logger import setup_logger
 
@@ -19,19 +22,35 @@ except Exception as e:
     client = None
 
 def contextualize_question(question: str, history: List[dict]) -> str:
-    if "summarize" in question.lower(): return question
-    if not history or not client: return question
+    """
+    Rewrite a raw user question into a search-optimized query using short history.
+
+    Falls back to the original question if the LLM client is unavailable.
+    """
+    if "summarize" in question.lower():
+        return question
+    if not history or not client:
+        return question
     
     messages = [{"role": "system", "content": "Rewrite the user's question to be a specific search query based on the history."}]
     for msg in history[-3:]:
         role = "user" if msg.get("role") == "user" else "assistant"
-        messages.append({"role": role, "content": msg.get("content", "")})
+        messages.append(
+            {"role": role, "content": msg.get("content", "")}
+        )
     messages.append({"role": "user", "content": f"Rewrite: {question}"})
     
     try:
-        resp = client.chat.completions.create(model=settings.LLM_MODEL, messages=messages, temperature=0.3)
+        resp = client.chat.completions.create(
+            model=settings.LLM_MODEL,
+            messages=messages,
+            temperature=0.3,
+        )
         return resp.choices[0].message.content.strip()
-    except: return question
+    except Exception:
+        # On any upstream error, keep behaviour identical and simply return the
+        # original question.
+        return question
 
 def generate_hyde_doc(question: str) -> str:
     """
@@ -39,7 +58,8 @@ def generate_hyde_doc(question: str) -> str:
     Generates a fake 'perfect' answer to the question. 
     We embed this to find real documents that look like this answer.
     """
-    if not client: return question
+    if not client:
+        return question
     
     system_msg = "You are a helpful assistant. Write a short, hypothetical paragraph that would perfectly answer the user's question. Do not ask questions, just write the answer content."
     
@@ -48,20 +68,20 @@ def generate_hyde_doc(question: str) -> str:
             model=settings.LLM_MODEL,
             messages=[
                 {"role": "system", "content": system_msg},
-                {"role": "user", "content": question}
+                {"role": "user", "content": question},
             ],
-            temperature=0.5
+            temperature=0.5,
         )
         return resp.choices[0].message.content.strip()
     except Exception as e:
         logger.warning(f"HyDE generation failed: {e}")
         return question
 
-def analyze_content(contexts: list) -> dict:
+def analyze_content(contexts: List[str]) -> Dict[str, object]:
     """
     Smart Analytics: Extracts topics, doc type, and summary from chunks.
     """
-    if not client or not contexts: 
+    if not client or not contexts:
         return {"topics": [], "type": "Unknown", "summary": "Analysis unavailable."}
 
     # Sample a few chunks to get the gist (first, middle, last)
@@ -79,8 +99,8 @@ def analyze_content(contexts: list) -> dict:
         resp = client.chat.completions.create(
             model=settings.LLM_MODEL,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"}, # Force JSON
-            temperature=0.3
+            response_format={"type": "json_object"},  # Force JSON
+            temperature=0.3,
         )
         return json.loads(resp.choices[0].message.content)
     except Exception as e:
